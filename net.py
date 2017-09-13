@@ -12,12 +12,12 @@ import math
 from PIL import Image
 from model import *
 
-class net():
+class Operator():
     def __init__(self, name, pretrained, nb_class):
         self.name = name
         self.model = fcn(pretrained=pretrained, nb_class=nb_class).cuda()
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-4)
-        self.criterion = Criterion(l1_portion=0.1)
+        self.criterion = Criterion()
         self.accuracy = Accuracy()
     def train(self, train_loader, validate_loader, epochs):
         for epoch in range(1, epochs+1):
@@ -29,16 +29,15 @@ class net():
             for img, lbl in progress:
                 self.optimizer.zero_grad()
                 loss, loss_term, acc = self.forward(img, lbl)
-            
-            loss.backward()
-            self.optimizer.step()
-
-            hist.add(loss, loss_term, acc)
-            progress.set_description('Epoch#%i' % epoch)
-            progress.set_postfix(
-                loss = '%.04f' % loss.data[0],
-                acc= '%.04f' % acc.data[0]
-            )
+                loss.backward()
+                self.optimizer.step()
+                hist.add(loss, loss_term, acc)
+                
+                progress.set_description('Epoch#%i' % epoch)
+                progress.set_postfix(
+                    loss = '%.04f' % loss.data[0],
+                    acc= '%.04f' % acc.data[0]
+                    )
             metrics = dict(**hist.metric(), **self.evaluate(validate_loader, prefix='val_'))
             print(
                 '---> Epoch#{}:\n loss: {loss:.4f}, acc: {accuracy:.4f}'
@@ -50,10 +49,10 @@ class net():
             return Variable(t, volatile=is_eval).cuda()
         img, lbl = to_var(img), to_var(lbl)
         output = self.model(img)
-        loss, loss_term, acc = self.criterion(output, lbl)
+        loss, loss_term = self.criterion(output, lbl)
         acc = self.accuracy(output, lbl)
 
-        return loss, loss_term, acc, output if is_eval else loss, loss_term, acc
+        return (loss, loss_term, acc, output) if is_eval==True else (loss, loss_term, acc)
     
     @timeit
     def evaluate(self, data_loader, prefix=''):
@@ -85,7 +84,7 @@ class EpochHistory():
     
     def metric(self, prefix=''):
         terms = {
-            prefix + 'loss': self.losses.mean()
+            prefix + 'loss': self.losses.mean(),
             prefix + 'accuracy': self.accuracies.mean()
         }
         terms.update({
@@ -100,12 +99,12 @@ class Accuracy():
     
     def pixelwise_accuracy(self, output, lbl):
         _, output = torch.max(output, 1)
-        return (output == target).float().mean()
+        return (output == lbl).float().mean()
 
 class Criterion():
     def __init__(self, l1_portion=0.1, weights=None):
         self.l1_criterion = nn.L1Loss().cuda()
-        self.crossentropy = nn.CrossEntropyLoss(weights=weights).cuda()
+        self.crossentropy = nn.CrossEntropyLoss(weight=weights).cuda()
         self.l1_portion = l1_portion
     
     def __call__(self, pred, target) -> (float,dict):

@@ -13,7 +13,6 @@ torch.backends.cudnn.benchmark = True
 @click.option('--epochs', default=20, type=int)
 @click.option('--batch_size', default=1, type=int)
 @click.option('--workers', default=6, type=int)
-@click.option('--resume', type=click.Path(exists=True))
 def main(name, dataset_root, image_size, epochs, batch_size, workers):
     print('===> Prepare dataloader')
     dataset_args = {'root': dataset_root, 'target_size': image_size}
@@ -27,7 +26,7 @@ def main(name, dataset_root, image_size, epochs, batch_size, workers):
     	batch_size=batch_size, **loader_args
     )
     print('===> Prepare model')
-    net = Net(name='new_mdl_testing1', pretrained=True)
+    net = Operator(name='new_mdl_testing1', pretrained=True, nb_class=37)
     print('===> Start Training')
     net.train(
     	train_loader=train_loader,
