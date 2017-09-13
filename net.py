@@ -58,7 +58,7 @@ class Operator():
     def evaluate(self, data_loader, prefix=''):
         self.model.eval() 
         hist = EpochHistory(length=len(data_loader))
-        for i, img, lbl in enumerate(data_loader):
+        for i, (img, lbl) in enumerate(data_loader):
             loss, loss_term, acc, ouptut = self.forward(img, lbl, is_eval=True)
             hist.add(loss, loss_term, acc)
 
